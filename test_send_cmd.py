@@ -5,9 +5,9 @@
 '''
 
 # For test only
-from control import Connection
+from connection import Connection
 
 if __name__ == "__main__":
-    con = Connection("10.66.4.82")
-    con.send('hello!!')
+    con = Connection("10.66.4.82", 51000, 'TCP')
+    con.send(['startheartbeat', '10.66.4.82', '52000'])
     con.close()

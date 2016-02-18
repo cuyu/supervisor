@@ -8,10 +8,13 @@ import socket
 import sys
 
 import time
-from control import Connection, COMMANDS
+from connection import Connection, COMMANDS
 
 # Set socket timeout to avoid handle_request blocking.
 socket.setdefaulttimeout(5)
+
+# Set the ClientServer instance as a global variable so that we can execute add_supervisor in ClientExecutor.
+global SERVER
 
 
 class ClientManager(object):
@@ -31,9 +34,17 @@ class ClientExecutor(object):
 
     def execute(self, cmd, args):
         cmd = COMMANDS[cmd]
-        if cmd == 1:
-            # TODO: how to bind `server' to the specific client server
-            server.add_supervisor(*args)
+        if cmd == 0:
+            pass
+        elif cmd == 1:
+            try:
+                SERVER.add_supervisor(*args)
+            except Exception:
+                return -1
+            else:
+                return 1
+        elif cmd == 2:
+            pass
 
 
 class ClientRequestHandler(SocketServer.StreamRequestHandler):
@@ -42,11 +53,13 @@ class ClientRequestHandler(SocketServer.StreamRequestHandler):
     """
 
     def handle(self):
-        cmd = self.rfile.readline().strip()
-        msg = ''
+        cmd = int(self.rfile.readline().strip())
         args = []
-        while msg != '$$$':
+        # TODO: may blocking here. need to add a timeout.
+        while True:
             msg = self.rfile.readline().strip()
+            if msg == '$$$':
+                break
             args.append(msg)
         executor = ClientExecutor()
         result = executor.execute(cmd, args)
@@ -71,7 +84,7 @@ class ClientServer(object):
         """
         Starts the server like TCPServer.serve_forever,
         but shuts down on interrupt.
-        Send a heart beat to supervisor1 server in a given interval.
+        Send a heart beat to supervisor server in a given interval.
         """
         last_time = 0
         while True:
@@ -81,8 +94,8 @@ class ClientServer(object):
             this_time = time.time()
             if this_time > last_time + self.interval:
                 last_time = this_time
-                if not self.supervisor:
-                    self.supervisor.send("i'm alive")
+                if self.supervisor:
+                    self.supervisor.send("still alive")
         # print "OK, STOP!!!!!"
         # self.server.shutdown()
         # print "stopped"
@@ -100,7 +113,7 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         PORT = int(sys.argv[1])
     # Create the server, binding to HOST on port PORT
-    server = ClientServer(HOST, PORT)
+    SERVER = ClientServer(HOST, PORT)
     # Activate the server; this will keep running until you
     # interrupt with ClientManager.interrupted = True
-    server.start_server()
+    SERVER.start_server()
