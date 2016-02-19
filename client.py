@@ -5,8 +5,8 @@
 '''
 import SocketServer
 import socket
+import subprocess
 import sys
-
 import time
 from connection import Connection, COMMANDS
 
@@ -34,17 +34,21 @@ class ClientExecutor(object):
 
     def execute(self, cmd, args):
         cmd = COMMANDS[cmd]
-        if cmd == 0:
-            pass
-        elif cmd == 1:
+        if cmd == 'stopserver':
+            ClientManager.interrupted = True
+            return 0
+        elif cmd == 'startheartbeat':
+            assert len(args) == 2
             try:
                 SERVER.add_supervisor(*args)
             except Exception:
                 return -1
             else:
-                return 1
-        elif cmd == 2:
-            pass
+                return 0
+        elif cmd == 'execute':
+            assert len(args) == 1
+            result = subprocess.check_output(args[0], shell=True)
+            return result
 
 
 class ClientRequestHandler(SocketServer.StreamRequestHandler):
@@ -105,7 +109,7 @@ class ClientServer(object):
         """
         This method should be called from handle_request().
         """
-        self.supervisor = Connection(host, port)
+        self.supervisor = Connection(host, int(port), 'UDP')
 
 
 if __name__ == "__main__":

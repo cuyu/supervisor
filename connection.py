@@ -5,7 +5,11 @@
 '''
 import socket
 
-COMMANDS = ['stopcontrol', 'startheartbeat']
+# Supported commands for controlling clients:
+# [0]stopcontrol -- stop the server
+# [1]startheartbeat -- start to send heartbeat messages
+# [2]execute -- execute system command on local machine
+COMMANDS = ['stopserver', 'startheartbeat', 'execute']
 
 
 class Connection(object):
@@ -25,14 +29,18 @@ class Connection(object):
         return sock
 
     def send(self, message):
+        """
+        Send a message.
+        """
         sock = self._connect()
         sock.send(message + '\n')
 
-    def send_cmd(self, cmd, args):
+    def send_cmd(self, cmd, *args):
         """
+        Send command. (Usually used for supervisor send to clients)
         :param cmd: should be a cmd listed in COMMANDS.
-        :param args: is a list contains a set of messages. (each message send as a line)
-        e.g. send('addsupervisor', ['systest-auto-master', '51000'])
+        :param args: a set of argument messages. (each message send as a line)
+        e.g. send('addsupervisor', 'systest-auto-master', '51000')
         """
         sock = self._connect()
         sock.send(self.get_short_cmd(cmd) + '\n')

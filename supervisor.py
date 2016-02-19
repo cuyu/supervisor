@@ -6,7 +6,9 @@
 import SocketServer
 import socket
 import sys
+
 import time
+from connection import Connection
 
 
 global SERVER
@@ -46,10 +48,22 @@ class Supervisor(object):
         # print "stopped"
         SuperManager.server_stopped = True
 
-    def add_client(self, host, port=51000):
+    def setup_client(self, host, port, user, password):
+        """
+        Used to download client server code to the client and start the server on the client.
+        """
         pass
 
+    def connect_client(self, host, port=51000):
+        """
+        Used to set up the communication between a running client and the supervisor.
+        """
+        con = Connection(host, port, 'TCP')
+        con.send_cmd('startheartbeat', self.host, self.port)
+        con.close()
+
     def update_client_heartbeat(self, client_address, beat_time):
+        print client_address, '@', beat_time
         self._client_heartbeat[client_address[0]] = beat_time
 
 
