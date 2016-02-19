@@ -5,9 +5,9 @@
 '''
 import SocketServer
 import socket
-import sys
-
+import SimpleHTTPServer
 import time
+import threading
 from connection import Connection
 
 
@@ -18,7 +18,7 @@ class SuperManager(object):
     interrupted = False
 
 
-class SuperRequestHandler(SocketServer.DatagramRequestHandler):
+class SuperUDPRequestHandler(SocketServer.DatagramRequestHandler):
     def handle(self):
         msg = self.rfile.getvalue()
         if msg == 'still alive\n':
@@ -26,27 +26,36 @@ class SuperRequestHandler(SocketServer.DatagramRequestHandler):
 
 
 class Supervisor(object):
-    def __init__(self, host, port):
+    def __init__(self, host):
         """
         Bind `handle' method of SuperRequestHandler to handle requests from TCPServer.
         """
         self.host = host
-        self.port = port
-        self.server = SocketServer.UDPServer((host, port), SuperRequestHandler)
+        # Port info will be init when starting corresponding server, cause we may just want to
+        # use part of the features. (e.g. we may not need http server and use udp server only)
+        self.udp_port = None
+        self.http_port = None
         self._client_heartbeat = {}
 
-    def start_server(self):
+    def start_udp_server(self, port):
         """
         Start a UDPServer to receive heartbeat of monitored clients.
         """
+        self.udp_port = port
+        udp_server = SocketServer.UDPServer((self.host, port), SuperUDPRequestHandler)
         while True:
             if SuperManager.interrupted:
                 break
-            self.server.handle_request()
+            udp_server.handle_request()
         # print "OK, STOP!!!!!"
         # self.server.shutdown()
         # print "stopped"
         SuperManager.server_stopped = True
+
+    def start_http_server(self, port):
+        self.http_port = port
+        httpd = SocketServer.TCPServer((self.host, port), SimpleHTTPServer.SimpleHTTPRequestHandler)
+        httpd.serve_forever()
 
     def setup_client(self, host, port, user, password):
         """
@@ -58,8 +67,9 @@ class Supervisor(object):
         """
         Used to set up the communication between a running client and the supervisor.
         """
+        assert self.udp_port is not None
         con = Connection(host, port, 'TCP')
-        con.send_cmd('startheartbeat', self.host, self.port)
+        con.send_cmd('startheartbeat', self.host, self.udp_port)
         con.close()
 
     def update_client_heartbeat(self, client_address, beat_time):
@@ -67,12 +77,31 @@ class Supervisor(object):
         self._client_heartbeat[client_address[0]] = beat_time
 
 
+class FuncThread(threading.Thread):
+    """
+    Create a thread to run the input function with given args.
+    The args should be a tuple or a list.
+    """
+    def __init__(self, func, args):
+        threading.Thread.__init__(self)
+        self.func = func
+        self.args = args
+
+    def run(self):
+        print 'Start thread on function: ' + self.func.__name__
+        self.func(*self.args)
+
+
 if __name__ == "__main__":
-    HOST, PORT = socket.gethostname(), 52000
-    if len(sys.argv) > 1:
-        PORT = int(sys.argv[1])
+    HOST = socket.gethostname()
+    UDP_PORT = 52000
+    HTTP_PORT = 12000
     # Create the server, binding to HOST on port PORT
-    SERVER = Supervisor(HOST, PORT)
+    SERVER = Supervisor(HOST)
     # Activate the server; this will keep running until you
     # interrupt with ClientManager.interrupted = True
-    SERVER.start_server()
+    thread_udp_server = FuncThread(SERVER.start_udp_server, (UDP_PORT,))
+    thread_http_server = FuncThread(SERVER.start_http_server, (HTTP_PORT,))
+
+    thread_udp_server.start()
+    thread_http_server.start()
