@@ -7,3 +7,8 @@ The design is as follows:
   |  Web   |------------------->| Supervisor |--------------->| Client |
   |        |<-------------------|   server   |<---------------| server |
   +--------+   send data(HTTP)  +------------+ send data(UDP) +--------+
+
+
+
+TODO:
+1. add logging

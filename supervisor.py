@@ -10,12 +10,26 @@ import time
 import threading
 from connection import Connection
 
-
 global SERVER
 
 
 class SuperManager(object):
     interrupted = False
+
+
+class SuperHTTPRequestHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
+    # Default is "HTTP/1.0"
+    protocol_version = "HTTP/1.1"
+
+    def do_GET(self):
+        SimpleHTTPServer.SimpleHTTPRequestHandler.do_GET(self)
+
+    def do_POST(self):
+        # The content of self.wfile is what we get after sending the http request.
+        # In correspond, the content of self.rfile is what we send to the http request.
+        # We do not need to parse it by our own as the SimpleHTTPRequestHandler.parse_request()
+        # has done this job for us already.
+        self.wfile.write("<html><body><h1>TODO</h1></body></html>")
 
 
 class SuperUDPRequestHandler(SocketServer.DatagramRequestHandler):
@@ -54,7 +68,7 @@ class Supervisor(object):
 
     def start_http_server(self, port):
         self.http_port = port
-        httpd = SocketServer.TCPServer((self.host, port), SimpleHTTPServer.SimpleHTTPRequestHandler)
+        httpd = SocketServer.TCPServer((self.host, port), SuperHTTPRequestHandler)
         httpd.serve_forever()
 
     def setup_client(self, host, port, user, password):
@@ -82,13 +96,14 @@ class FuncThread(threading.Thread):
     Create a thread to run the input function with given args.
     The args should be a tuple or a list.
     """
+
     def __init__(self, func, args):
         threading.Thread.__init__(self)
         self.func = func
         self.args = args
 
     def run(self):
-        print 'Start thread on function: ' + self.func.__name__
+        print 'Start thread on function: ' + self.func.__name__ + '\n'
         self.func(*self.args)
 
 
